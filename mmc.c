@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "mmc.h"
 #include "mmc_cmds.h"
 
 #define MMC_VERSION	"0.1"
@@ -110,7 +110,21 @@ static struct Command commands[] = {
 		"Send Sanitize command to the <device>.\nThis will delete the unmapped memory region of the device.",
 	  NULL
 	},
+	{ do_firmware_update, -2,
+         "firmware upload", "<firmware_file> " "<device>\n"
+              "Upload/Update firmware on <device> using <firmware_file>.\n",
+        NULL
+    },
 	{ 0, 0, 0, 0 }
+};
+const char *manfid_lookup[0x100] = {
+       [MANFID_PANASONIC] = "Panasonic",
+       [MANFID_KINGSTON] = "Kingston",
+       [MANFID_SANDISK] = "Sandisk",
+       [MANFID_SAMSUNG] = "Samsung",
+       [MANFID_TOSHIBA] = "Toshiba",
+       [MANFID_SANDISK_SEM] = "Sandisk_SEM",
+       [MANFID_KINGSTON_MMC] = "Kingston_MMC"
 };
 
 static char *get_prgname(char *programname)
@@ -365,7 +379,7 @@ static int parse_args(int argc, char **argv,
 	
         if (prepare_args( nargs_, args_, prgname, matchcmd )){
                 fprintf(stderr, "ERROR: not enough memory\\n");
-		return -20;
+	    return -2;
         }
 
 

@@ -17,9 +17,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
+#include <errno.h>
 #include <dirent.h>
+#include <sys/ioctl.h>
+#include <linux/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -30,23 +31,26 @@
 #include "mmc.h"
 #include "mmc_cmds.h"
 
+#define EXT_CSD_SIZE   512
+#define CID_SIZE 16
+
 int read_extcsd(int fd, __u8 *ext_csd)
 {
 	int ret = 0;
 	struct mmc_ioc_cmd idata;
 	memset(&idata, 0, sizeof(idata));
-	memset(ext_csd, 0, sizeof(__u8) * 512);
+	memset(ext_csd, 0, sizeof(__u8) * EXT_CSD_SIZE);
 	idata.write_flag = 0;
 	idata.opcode = MMC_SEND_EXT_CSD;
 	idata.arg = 0;
 	idata.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
-	idata.blksz = 512;
+	idata.blksz = EXT_CSD_SIZE;
 	idata.blocks = 1;
 	mmc_ioc_cmd_set_data(idata, ext_csd);
 
 	ret = ioctl(fd, MMC_IOC_CMD, &idata);
 	if (ret)
-		perror("ioctl");
+		perror("ioctl SEND_EXT_CSD");
 
 	return ret;
 }
@@ -67,9 +71,32 @@ int write_extcsd_value(int fd, __u8 index, __u8 value)
 
 	ret = ioctl(fd, MMC_IOC_CMD, &idata);
 	if (ret)
-		perror("ioctl");
+		perror("ioctl Write EXT CSD");
 
-	return ret;
+      return ret;
+}
+
+int read_cid(int fd, __u8 *cid)
+{
+       int ret = 0;
+       struct mmc_ioc_cmd idata;
+
+       memset(&idata, 0, sizeof(idata));
+       memset(cid, 0, sizeof(__u8) * CID_SIZE);
+
+       idata.write_flag = 0;
+       idata.opcode = MMC_SEND_CID;
+       idata.arg    = 0;
+       idata.flags  = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
+       idata.blksz  = CID_SIZE;
+       idata.blocks = 1;
+       mmc_ioc_cmd_set_data(idata, cid);
+
+       ret = ioctl(fd, MMC_IOC_CMD, &idata);
+       if (ret)
+               perror("ioctl SEND_CID");
+ 
+        return ret;
 }
 
 int send_status(int fd, __u32 *response)
@@ -103,17 +130,8 @@ void print_writeprotect_status(__u8 *ext_csd)
 
 		reg = ext_csd[EXT_CSD_BOOT_WP];
 		printf("Boot Area Write protection [BOOT_WP]: 0x%02x\n", reg);
-		printf(" Power ro locking: ");
-		if (reg & EXT_CSD_BOOT_WP_B_PWR_WP_DIS)
-			printf("not possible\n");
-		else
-			printf("possible\n");
-
-		printf(" Permanent ro locking: ");
-		if (reg & EXT_CSD_BOOT_WP_B_PERM_WP_DIS)
-			printf("not possible\n");
-		else
-			printf("possible\n");
+		printf(" Power ro locking: %s possible\n", (reg & EXT_CSD_BOOT_WP_B_PWR_WP_DIS) ? "not " : "");
+        printf(" Permanent ro locking: %spossible\n",(reg & EXT_CSD_BOOT_WP_B_PERM_WP_DIS) ? "not " : "");
 
 		printf(" ro lock status: ");
 		if (reg & EXT_CSD_BOOT_WP_B_PWR_WP_EN)
@@ -127,7 +145,7 @@ void print_writeprotect_status(__u8 *ext_csd)
 
 int do_writeprotect_get(int nargs, char **argv)
 {
-	__u8 ext_csd[512];
+	__u8 ext_csd[EXT_CSD_SIZE];
 	int fd, ret;
 	char *device;
 
@@ -155,7 +173,7 @@ int do_writeprotect_get(int nargs, char **argv)
 
 int do_writeprotect_set(int nargs, char **argv)
 {
-	__u8 ext_csd[512], value;
+	__u8 ext_csd[EXT_CSD_SIZE], value;
 	int fd, ret;
 	char *device;
 
@@ -191,7 +209,7 @@ int do_writeprotect_set(int nargs, char **argv)
 
 int do_disable_512B_emulation(int nargs, char **argv)
 {
-	__u8 ext_csd[512], native_sector_size, data_sector_size, wr_rel_param;
+	__u8 ext_csd[EXT_CSD_SIZE], native_sector_size, data_sector_size, wr_rel_param;
 	int fd, ret;
 	char *device;
 
@@ -301,7 +319,7 @@ int do_write_boot_en(int nargs, char **argv)
 
 int do_hwreset(int value, int nargs, char **argv)
 {
-	__u8 ext_csd[512];
+	__u8 ext_csd[EXT_CSD_SIZE];
 	int fd, ret;
 	char *device;
 
@@ -360,7 +378,7 @@ int do_hwreset_dis(int nargs, char **argv)
 
 int do_write_bkops_en(int nargs, char **argv)
 {
-	__u8 ext_csd[512], value = 0;
+	__u8 ext_csd[EXT_CSD_SIZE], value = 0;
 	int fd, ret;
 	char *device;
 
@@ -497,7 +515,7 @@ int set_partitioning_setting_completed(int dry_run, const char * const device,
 int do_enh_area_set(int nargs, char **argv)
 {
 	__u8 value;
-	__u8 ext_csd[512];
+	__u8 ext_csd[EXT_CSD_SIZE];
 	int fd, ret;
 	char *device;
 	int dry_run = 1;
@@ -635,7 +653,7 @@ int do_enh_area_set(int nargs, char **argv)
 int do_write_reliability_set(int nargs, char **argv)
 {
 	__u8 value;
-	__u8 ext_csd[512];
+	__u8 ext_csd[EXT_CSD_SIZE];
 	int fd, ret;
 
 	int dry_run = 1;
@@ -696,7 +714,7 @@ int do_write_reliability_set(int nargs, char **argv)
 
 int do_read_extcsd(int nargs, char **argv)
 {
-	__u8 ext_csd[512], ext_csd_rev, reg;
+	__u8 ext_csd[EXT_CSD_SIZE], ext_csd_rev, reg;
 	__u32 regl;
 	int fd, ret;
 	char *device;
@@ -722,25 +740,14 @@ int do_read_extcsd(int nargs, char **argv)
 	ext_csd_rev = ext_csd[192];
 
 	switch (ext_csd_rev) {
-	case 6:
-		str = "4.5";
-		break;
-	case 5:
-		str = "4.41";
-		break;
-	case 3:
-		str = "4.3";
-		break;
-	case 2:
-		str = "4.2";
-		break;
-	case 1:
-		str = "4.1";
-		break;
-	case 0:
-		str = "4.0";
-		break;
-	default:
+       case 7: str = "5.0"; break;
+       case 6: str = "4.5"; break;
+       case 5: str = "4.41"; break;
+       case 3: str = "4.3"; break;
+       case 2: str = "4.2"; break;
+       case 1: str = "4.1"; break;
+       case 0: str = "4.0"; break;
+	   default:
 		goto out_free;
 	}
 	printf("=============================================\n");
@@ -1161,5 +1168,141 @@ int do_sanitize(int nargs, char **argv)
 
 	return ret;
 
+}
+
+int do_firmware_update(int nargs, char **argv)
+{
+       char *emmc_fw;
+       char *device;
+       char *fwfilename;
+       struct stat fwfilestat;
+       size_t fwsize;
+       int ret = 0;
+       int devfd,fwfd;
+       __u8 ext_csd[EXT_CSD_SIZE];
+       __u8 cid[CID_SIZE];
+       __u8 ext_csd_rev;
+
+
+       CHECK(nargs != 4, "Usage: mmc firmware update"
+                       " --I_want_to_destroy_my_drive"
+                       " </path/to/mmcblkX> </path/to/FW.bin>\n",
+                         exit(1));
+
+
+       /* Lesson from hdparm: user must be aware of the risks
+        * Key here is the additional command line flag be UNDOCUMENTED.
+        * User _must_ read and KNOW this is risky at runtime.
+        */
+       if (strcmp(argv[4], "--I_want_to_destroy_my_drive")) {
+               fprintf(stderr,"ERROR: Please specify -I_want_to_destroy_my_drive"
+               " as first parameter to firmware update.\n");
+
+               exit(1);
+       }
+
+       emmc_fw = malloc(MMC_IOC_MAX_BYTES);
+       if (!emmc_fw)
+               return -ENOMEM;
+
+       device = argv[5];
+
+       devfd = open(device, O_RDWR);
+       if (devfd < 0) {
+               fprintf(stderr,"ERROR: open %s: %m\n", device); /* %m = errno */
+               goto out_free;
+       }
+
+       /* 1) read device version and attributes */
+       ret = read_extcsd(devfd, ext_csd);
+       if (ret) {
+               fprintf(stderr, "ERROR: Read EXT_CSD from %s: %m\n", device);
+               goto out_dev;
+       }
+
+       ext_csd_rev = ext_csd[192];
+
+       if (ext_csd_rev < 7) {
+               fprintf(stderr, "ERROR: Can not update firmware"
+                       ": %s is pre-emmc 5.0 vintage\n", device);
+               goto out_dev;
+       }
+
+       printf("%s: FW is currently %8s (0x%02x%02x%02x%02x%02x%02x%02x%02x)\n",
+               device, &(ext_csd[254]),
+               ext_csd[254], ext_csd[255], ext_csd[256], ext_csd[257],
+               ext_csd[258], ext_csd[259], ext_csd[260], ext_csd[261]
+               );
+
+       /* 2) confirm SUPPORTED_MODES has FFU bit set */
+       if (!(ext_csd[493] & 1)) {
+               fprintf(stderr, "ERROR: %s is eMMC 5.0 device"
+                       "but does not support FFU.\n", device);
+               goto out_dev;
+       }
+
+       /* 3) confirm FW updated is NOT disabled on this device */
+       if (ext_csd[169] & 1) {
+               fprintf(stderr, "ERROR: %s is eMMC 5.0 device"
+                       "but FFU is disabled.\n", device);
+               goto out_dev;
+       }
+
+       /* 4) read the device manfid */
+       ret = read_cid(devfd, cid);
+       if (ret) {
+               fprintf(stderr, "ERROR: Read EXT_CSD from %s: %m\n", device);
+               goto out_dev;
+       }
+
+       /* 5) Fetch the FW image */
+       fwfilename = argv[2];
+
+       fwfd = open(fwfilename, O_RDONLY);
+       if (fwfd < 0) {
+               /* %m = errno */
+               fprintf(stderr,"ERROR: open %s: %m", fwfilename);
+               goto out_dev;
+       }
+
+       ret = fstat(fwfd, &fwfilestat);
+       if (ret) {
+               /* %m = errno */
+               fprintf(stderr,"ERROR: fstat %s: %m", fwfilename);
+               goto out_fw;
+       }
+
+       fwsize = fwfilestat.st_size;
+       if (fwsize > MMC_IOC_MAX_BYTES) {
+               fprintf(stderr,"ERROR: %s is > %ld bytes long (max allowed)\n",
+                       fwfilename, MMC_IOC_MAX_BYTES);
+               goto out_fw;
+       }
+
+       ret = read(fwfd, emmc_fw, fwsize);
+       if (ret < fwsize) {
+               fprintf(stderr,"ERROR: did not read all %d bytes of %s"
+                               "(%d bytes long)\n",
+                       fwsize, fwfilename, ret);
+               goto out_fw;
+       }
+
+       do_emmc5_fw_update(devfd, cid, ext_csd, emmc_fw, fwsize);
+
+       cid[13] = 0;    /* make sure string is NULL terminated */
+
+       printf("%s: FW updated to %8s (0x%2x%2x%2x%2x%2x%2x%2x%2x)\n",
+               device, &(ext_csd[254]),
+               ext_csd[254], ext_csd[255], ext_csd[256], ext_csd[257],
+               ext_csd[258], ext_csd[259], ext_csd[260], ext_csd[261]
+               );
+
+out_fw:
+       close(fwfd);
+out_dev:
+       close(devfd);
+out_free:
+       free(emmc_fw);
+       return ret;
 }
 

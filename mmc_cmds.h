@@ -28,3 +28,8 @@ int do_sanitize(int nargs, char **argv);
 int do_status_get(int nargs, char **argv);
 int do_enh_area_set(int nargs, char **argv);
 int do_write_reliability_set(int nargs, char **argv);
+int do_firmware_update(int nargs, char **argv);
+int read_extcsd(int fd, __u8 *ext_csd);
+int write_extcsd_value(int fd, __u8 index, __u8 value);
+int do_emmc5_fw_update(int devfd, __u8 *cid, __u8 *ext_csd, char *emmc_fw, size_t fwsize);
+

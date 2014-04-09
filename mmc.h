@@ -24,9 +24,19 @@
 #define MMC_BLOCK_MAJOR			179
 
 /* From kernel linux/mmc/mmc.h */
+#define MMC_GO_IDLE_STATE         		0   /* bc                               */
+#define MMC_ALL_SEND_CID                2   /* bcr                          R2  */
 #define MMC_SWITCH		6	/* ac	[31:0] See below	R1b */
+#define MMC_SELECT_CARD                 7   /* ac   [31:16]                 RCA */
 #define MMC_SEND_EXT_CSD	8	/* adtc				R1  */
+#define MMC_SEND_CID                    10  /* ac   [31:16] RCA             R2  */
+#define MMC_STOP_TRANSMISSION           12  /* ac                           R1b */
 #define MMC_SEND_STATUS		13	/* ac   [31:16] RCA        R1  */
+#define MMC_READ_SINGLE_BLOCK           17  /* adtc [31:0] data addr        R1  */
+#define MMC_READ_MULTIPLE_BLOCK         18  /* adtc [31:0] data addr        R1  */
+#define MMC_WRITE_BLOCK                 24  /* adtc [31:0] data addr        R1  */
+#define MMC_WRITE_MULTIPLE_BLOCK        25  /* adtc                         R1  */
+#define MMC_GEN_CMD                     56  /* adtc [0] RD/WR               R1  */
 #define R1_SWITCH_ERROR   (1 << 7)  /* sx, c */
 #define MMC_SWITCH_MODE_WRITE_BYTE	0x03	/* Set target to value */
 
@@ -125,3 +135,13 @@
 
 #define MMC_RSP_R1	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
 #define MMC_RSP_R1B	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE|MMC_RSP_BUSY)
+#define MANFID_PANASONIC       0x000001
+#define MANFID_KINGSTON        0x000002
+#define MANFID_SANDISK         0x000003
+#define MANFID_SAMSUNG         0x000015
+#define MANFID_TOSHIBA         0x00001d
+#define MANFID_SANDISK_SEM     0x000045        /* seen with "SEM16G" */
+#define MANFID_KINGSTON_MMC    0x000070        /* Seen on embedded device */
+#if 0
+const char *manfid_lookup[];
+#endif
